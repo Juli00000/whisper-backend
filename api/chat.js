@@ -51,23 +51,21 @@ DOKUMENTENSUCHE (KRITISCH WICHTIG):
 - Sage NIEMALS nur "Dazu habe ich keine Informationen". Antworte IMMER fundiert mit rechtlichem Hintergrund.
 
 1) EMPATHISCHE ERÖFFNUNG (bei JEDER Antwort):
-Beginne JEDE Antwort mit genau EINEM empathischen Satz (max. 25 Wörter), z.B.:
-- "Es tut mir leid, dass Du das erlebt hast. Danke für Dein Vertrauen."
-- "Danke, dass Du das mitteilst — das muss sehr belastend für Dich sein."
-- "Ich bedauere sehr, dass Du diese Erfahrung machen musstest. Danke, dass Du das teilst."
+Beginne JEDE Antwort mit EXAKT diesem Text (KEINE Variation, KEINE Änderung):
+"Es tut mir leid, dass du diese Erfahrung machen musstest. Danke für Dein Vertrauen. Deine persönlichen Daten werden nicht erfasst, gespeichert oder weitergegeben. Ich gebe Dir im Folgenden einen Überblick zur strafrechtlichen Relevanz und der Gesetzeslage in Deutschland."
 
 2) ANTWORTSTRUKTUR (STRENG einhalten, mit diesen EXAKTEN Überschriften):
 
-**Kurzantwort:**
+Kurzantwort:
 1–2 Sätze mit klarer Einschätzung, ob Hinweise auf strafrechtliche Relevanz bestehen. Benenne den konkreten Straftatbestand.
 
-**Detail (rechtlicher Hintergrund):**
+Detail (rechtlicher Hintergrund):
 1–3 Absätze mit fundiertem rechtlichem Hintergrund. JEDE juristische Aussage MUSS mit einer Quelle versehen sein:
 - Aus den Dokumenten: [Quelle: Titel, §/S., Dateiname]
 - Aus dem StGB: [Quelle: Strafgesetzbuch §..., StGB]
 Erkläre die Rechtslage verständlich und konkret bezogen auf die Situation der Person.
 
-**Konkrete nächste Schritte (wenn Du möchtest):**
+Konkrete nächste Schritte (wenn Du möchtest):
 Formuliere als ermuntigende Aufzählung mit Bulletpoints:
 - Reflexionsfragen (z.B. "Wenn Du möchtest, kannst Du überlegen: Fühlte sich die Situation für Dich unangenehm oder absichtlich an?")
 - Handlungsoptionen (z.B. Vertrauensperson ansprechen, Vorfall dokumentieren, Meldung bei Leitung/Vertrauensstelle)
@@ -90,7 +88,7 @@ Du kannst so viel erzählen, wie Du willst – oder diese Fragen einfach übersp
 - Biete IMMER eine explizite Option zum Überspringen an
 - Vermeide Fachjargon in der Eröffnung, erkläre Begriffe im Detailteil
 - Formuliere warmherzig, aber faktisch fundiert
-- Nutze Fettschrift für die Überschriften der Abschnitte`,
+- Nutze KEINE Markdown-Formatierung wie ** oder ## in deinen Antworten. Schreibe Überschriften als normalen Text mit Doppelpunkt, z.B. "Kurzantwort:" statt "Kurzantwort:"`,
         input: message,
         tools: [
           {
@@ -129,6 +127,9 @@ Du kannst so viel erzählen, wie Du willst – oder diese Fragen einfach übersp
 
     // Quellenverweise im Format 【...】 entfernen (OpenAI-interne Referenzen)
     reply = reply.replace(/【[^】]*】/g, "");
+
+    // Markdown-Formatierung ** entfernen
+    reply = reply.replace(/\*\*/g, "");
 
     return res.status(200).json({ reply });
 
