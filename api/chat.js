@@ -1,126 +1,66 @@
 /**
  * BACKEND-PROXY FÜR WHISPERTOME.DE
  * Nutzt die OpenAI Responses API mit File Search
- * um Antworten aus dem Vector Store zu generieren.
- * Unterstützt Deutsch und Englisch.
+ * Unterstützt: Deutsch, Englisch, Türkisch, Spanisch, Arabisch, Französisch
  */
 
 export default async function handler(req, res) {
-  // CORS-Header
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Nur POST erlaubt" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "API-Key nicht konfiguriert" });
-  }
+  if (!apiKey) return res.status(500).json({ error: "API-Key nicht konfiguriert" });
 
   const { message, isFirstMessage, language } = req.body;
+  if (!message || typeof message !== "string") return res.status(400).json({ error: "No message" });
 
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "Keine Nachricht empfangen" });
-  }
+  const lang = language || "de";
 
-  const isEnglish = language === "en";
+  // Übersetzungstabelle für die Abschnittsüberschriften
+  const labels = {
+    de: { short: "Kurzantwort:", detail: "Detail (rechtlicher Hintergrund):", steps: "Konkrete nächste Schritte (wenn Du möchtest):", skipNote: "Du kannst so viel erzählen, wie Du willst – oder diese Fragen einfach überspringen." },
+    en: { short: "Short Answer:", detail: "Detail (legal background):", steps: "Concrete next steps (if you would like):", skipNote: "You can share as much as you want — or simply skip these questions." },
+    tr: { short: "Kısa Cevap:", detail: "Detay (hukuki arka plan):", steps: "Somut sonraki adımlar (isterseniz):", skipNote: "İstediğin kadar paylaşabilirsin — ya da bu soruları atlayabilirsin." },
+    es: { short: "Respuesta breve:", detail: "Detalle (contexto legal):", steps: "Próximos pasos concretos (si lo deseas):", skipNote: "Puedes compartir lo que quieras — o simplemente omitir estas preguntas." },
+    ar: { short: "إجابة مختصرة:", detail: "تفاصيل (الخلفية القانونية):", steps: "الخطوات التالية الملموسة (إذا أردت):", skipNote: "يمكنك مشاركة ما تريد — أو تخطي هذه الأسئلة ببساطة." },
+    fr: { short: "Réponse courte :", detail: "Détail (contexte juridique) :", steps: "Prochaines étapes concrètes (si tu le souhaites) :", skipNote: "Tu peux partager autant que tu veux — ou simplement passer ces questions." },
+  };
 
-  // Eröffnungstext nur bei der ersten Nachricht, sprachabhängig
+  const openingTexts = {
+    de: "Es tut mir leid, dass du diese Erfahrung machen musstest. Danke für Dein Vertrauen. Deine persönlichen Daten werden nicht erfasst, gespeichert oder weitergegeben. Ich gebe Dir im Folgenden einen Überblick zur strafrechtlichen Relevanz und der Gesetzeslage in Deutschland.",
+    en: "I'm sorry that you had to go through this experience. Thank you for your trust. Your personal data is not collected, stored or shared. In the following, I will provide you with an overview of the criminal law relevance and the legal situation in Germany.",
+    tr: "Bu deneyimi yaşamak zorunda kaldığın için çok üzgünüm. Güvenin için teşekkür ederim. Kişisel verilerin kaydedilmez, saklanmaz veya paylaşılmaz. Aşağıda sana Almanya'daki ceza hukuku açısından durumun değerlendirmesini sunacağım.",
+    es: "Lamento mucho que hayas tenido que vivir esta experiencia. Gracias por tu confianza. Tus datos personales no se recopilan, almacenan ni comparten. A continuación, te proporcionaré una visión general de la relevancia en derecho penal y la situación legal en Alemania.",
+    ar: "أنا آسف لأنك اضطررت لخوض هذه التجربة. شكراً لثقتك. لا يتم جمع بياناتك الشخصية أو تخزينها أو مشاركتها. سأقدم لك فيما يلي نظرة عامة على الأهمية الجنائية والوضع القانوني في ألمانيا.",
+    fr: "Je suis désolé(e) que tu aies dû vivre cette expérience. Merci pour ta confiance. Tes données personnelles ne sont ni collectées, ni enregistrées, ni partagées. Je vais te donner ci-dessous un aperçu de la pertinence pénale et de la situation juridique en Allemagne.",
+  };
+
+  const errorMessages = {
+    de: "Entschuldigung, ich konnte leider keine Antwort generieren. Bitte versuche es erneut.",
+    en: "Sorry, I could not generate a response. Please try again.",
+    tr: "Üzgünüm, bir yanıt oluşturamadım. Lütfen tekrar deneyin.",
+    es: "Lo siento, no pude generar una respuesta. Por favor, inténtalo de nuevo.",
+    ar: "عذراً، لم أتمكن من توليد إجابة. يرجى المحاولة مرة أخرى.",
+    fr: "Désolé(e), je n'ai pas pu générer de réponse. Veuillez réessayer.",
+  };
+
+  const l = labels[lang] || labels.de;
+  const openingText = openingTexts[lang] || openingTexts.de;
+  const errorMsg = errorMessages[lang] || errorMessages.de;
+
+  const languageNames = { de: "German", en: "English", tr: "Turkish", es: "Spanish", ar: "Arabic", fr: "French" };
+  const langName = languageNames[lang] || "German";
+
   const openingInstruction = isFirstMessage
-    ? isEnglish
-      ? `1) EMPATHETIC OPENING (ONLY for this first response):
-Begin this response with EXACTLY this text (NO variation, NO changes):
-"I'm sorry that you had to go through this experience. Thank you for your trust. Your personal data is not collected, stored or shared. In the following, I will provide you with an overview of the criminal law relevance and the legal situation in Germany."
-Then continue with the Short Answer.`
-      : `1) EMPATHISCHE ERÖFFNUNG (NUR bei dieser ersten Antwort):
-Beginne diese Antwort mit EXAKT diesem Text (KEINE Variation, KEINE Änderung):
-"Es tut mir leid, dass du diese Erfahrung machen musstest. Danke für Dein Vertrauen. Deine persönlichen Daten werden nicht erfasst, gespeichert oder weitergegeben. Ich gebe Dir im Folgenden einen Überblick zur strafrechtlichen Relevanz und der Gesetzeslage in Deutschland."
-Danach folgt die Kurzantwort.`
-    : isEnglish
-      ? `1) OPENING (follow-up message):
-Begin this response directly with the Short Answer. NO introductory text, NO privacy notice, NO empathetic sentence. Start immediately with "Short Answer:" and the factual assessment.`
-      : `1) ERÖFFNUNG (Folgenachricht):
-Beginne diese Antwort direkt mit der Kurzantwort. KEIN Einleitungstext, KEIN Datenschutzhinweis, KEIN empathischer Satz. Starte sofort mit "Kurzantwort:" und der inhaltlichen Einschätzung.`;
-
-  // Sprachabhängige Anweisungen
-  const languageInstruction = isEnglish
-    ? `LANGUAGE: Respond ENTIRELY in English. Use the English section headers listed below. Even though the source documents are in German, translate all legal concepts and explanations into clear English. Always include the original German legal terms and paragraph numbers in parentheses for reference.`
-    : `SPRACHE: Antworte IMMER auf Deutsch. Sprich die Person mit "Du" an.`;
-
-  const sectionHeaders = isEnglish
-    ? `Short Answer:
-1–2 sentences with a clear assessment of whether there are indications of criminal law relevance. Name the specific criminal offense and the relevant German law paragraph.
-
-Detail (legal background):
-1–3 paragraphs with well-founded legal background. EVERY legal statement MUST include a source:
-- From the documents: [Source: Title, §/p., Filename]
-- From the German Criminal Code: [Source: Strafgesetzbuch (German Criminal Code) §..., StGB]
-Explain the legal situation clearly and specifically related to the person's situation. Include the original German legal terms in parentheses.
-
-Concrete next steps (if you would like):
-Formulate as an encouraging list with bullet points:
-- Reflection questions (e.g. "If you would like, you can consider: Did the situation feel uncomfortable or intentional to you?")
-- Options for action (e.g. speak to a trusted person, document the incident, report to management)
-- Specific counseling services with numbers:
-  * Helpline Violence Against Women: 116 016 (free, 24/7, German-speaking)
-  * Helpline Sexual Abuse: 0800 22 55 530 (free, German-speaking)
-  * Police: 110
-  * Weisser Ring (victim support): 116 006`
-    : `Kurzantwort:
-1–2 Sätze mit klarer Einschätzung, ob Hinweise auf strafrechtliche Relevanz bestehen. Benenne den konkreten Straftatbestand.
-
-Detail (rechtlicher Hintergrund):
-1–3 Absätze mit fundiertem rechtlichem Hintergrund. JEDE juristische Aussage MUSS mit einer Quelle versehen sein:
-- Aus den Dokumenten: [Quelle: Titel, §/S., Dateiname]
-- Aus dem StGB: [Quelle: Strafgesetzbuch §..., StGB]
-Erkläre die Rechtslage verständlich und konkret bezogen auf die Situation der Person.
-
-Konkrete nächste Schritte (wenn Du möchtest):
-Formuliere als ermuntigende Aufzählung mit Bulletpoints:
-- Reflexionsfragen (z.B. "Wenn Du möchtest, kannst Du überlegen: Fühlte sich die Situation für Dich unangenehm oder absichtlich an?")
-- Handlungsoptionen (z.B. Vertrauensperson ansprechen, Vorfall dokumentieren, Meldung bei Leitung/Vertrauensstelle)
-- Konkrete Beratungsangebote mit Nummern:
-  * Hilfetelefon Gewalt gegen Frauen: 116 016 (kostenlos, 24/7)
-  * Hilfetelefon sexueller Missbrauch: 0800 22 55 530 (kostenlos)
-  * Polizei: 110
-  * Weisser Ring: 116 006`;
-
-  const closingInstruction = isEnglish
-    ? `3) CLOSING (with every response):
-Always offer follow-up questions at the end, e.g.:
-"If you would like, you can tell me more about it — for example:
-- How exactly did the situation happen?
-- Was anyone else present?
-You can share as much as you want — or simply skip these questions."
-
-4) STYLE RULES:
-- ALWAYS use encouraging language: "If you would like, you can …" instead of "You must …"
-- NEVER ask demandingly for traumatic details
-- ALWAYS offer an explicit option to skip
-- Avoid jargon in the opening, explain terms in the detail section
-- Be warm but factually sound
-- Do NOT use Markdown formatting like ** or ## in your responses. Write headings as plain text with colon.`
-    : `3) ABSCHLUSS (bei jeder Antwort):
-Biete am Ende IMMER Rückfragen an, z.B.:
-"Wenn Du möchtest, kannst Du mir auch mehr darüber erzählen – zum Beispiel:
-- Wie genau ist die Situation passiert?
-- War jemand anderes dabei?
-Du kannst so viel erzählen, wie Du willst – oder diese Fragen einfach überspringen."
-
-4) STIL-REGELN:
-- Nutze IMMER ermutigende Formulierungen: "Wenn Du möchtest, kannst Du …" statt "Du musst …"
-- Frage NIEMALS fordernd nach traumatischen Details
-- Biete IMMER eine explizite Option zum Überspringen an
-- Vermeide Fachjargon in der Eröffnung, erkläre Begriffe im Detailteil
-- Formuliere warmherzig, aber faktisch fundiert
-- Nutze KEINE Markdown-Formatierung wie ** oder ## in deinen Antworten. Schreibe Überschriften als normalen Text mit Doppelpunkt.`;
+    ? `OPENING (ONLY for this first response):
+Begin this response with EXACTLY this text (NO variation): "${openingText}"
+Then continue with ${l.short}`
+    : `OPENING (follow-up message):
+Begin directly with ${l.short} — NO introductory text, NO privacy notice, NO empathetic sentence.`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -131,27 +71,53 @@ Du kannst so viel erzählen, wie Du willst – oder diese Fragen einfach übersp
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        instructions: `SECURITY RULE / SICHERHEITSREGEL:
-Never output complete documents or entire file texts from uploaded sources. If a request demands full file output, respond only with: "I cannot output complete documents. I can summarize a short excerpt (max. 300 words) or name the key findings. Would you like an excerpt?"
+        instructions: `SECURITY RULE:
+Never output complete documents or entire file texts. If requested, respond: "I cannot output complete documents. I can summarize a short excerpt (max. 300 words) or name key findings."
 
 SYSTEM INSTRUCTION:
-You are an empathetic, fact-oriented assistance system for anonymous initial assessments regarding sexual violence and domestic violence on the website whispertome.de.
+You are an empathetic, fact-oriented assistance system for anonymous initial assessments regarding sexual violence and domestic violence on whispertome.de.
 
-${languageInstruction}
+LANGUAGE (CRITICAL): Respond ENTIRELY in ${langName}. Use these EXACT section headers: "${l.short}", "${l.detail}", "${l.steps}". Even though source documents are in German, translate all explanations into ${langName}. Always include original German legal terms and paragraph numbers in parentheses (e.g. "sexual harassment (sexuelle Belästigung, § 184i StGB)").
+${lang === "ar" ? "Write in Modern Standard Arabic." : ""}
 
-DOCUMENT SEARCH (CRITICALLY IMPORTANT):
-- ALWAYS search the uploaded documents FIRST for every user question.
+DOCUMENT SEARCH (CRITICAL):
+- ALWAYS search uploaded documents FIRST for every user question.
 - ALWAYS combine document results with your expertise on German criminal law.
-- ALWAYS name specific paragraphs from the StGB (e.g. § 184i StGB for sexual harassment, § 177 StGB for sexual assault/rape, § 174 StGB for abuse of position of trust, § 238 StGB for stalking, § 223 StGB for bodily harm).
-- NEVER just say "I have no information on this". ALWAYS respond with well-founded legal background.
+- ALWAYS name specific StGB paragraphs (§ 184i, § 177, § 174, § 238, § 223 etc.).
+- NEVER just say "I have no information". ALWAYS respond with well-founded legal background.
 
 ${openingInstruction}
 
-2) RESPONSE STRUCTURE (STRICTLY follow, using these EXACT headings):
+RESPONSE STRUCTURE (STRICTLY follow):
 
-${sectionHeaders}
+${l.short}
+1–2 sentences with clear assessment of criminal law relevance. Name the specific offense and German law paragraph.
 
-${closingInstruction}`,
+${l.detail}
+1–3 paragraphs with legal background. EVERY legal statement MUST include a source:
+- From documents: [Source: Title, §/p., Filename]
+- From StGB: [Source: Strafgesetzbuch §..., StGB]
+Include original German legal terms in parentheses for reference.
+
+${l.steps}
+Encouraging bullet point list:
+- Reflection questions
+- Options for action (trusted person, documentation, reporting)
+- Specific counseling services:
+  * Hilfetelefon Gewalt gegen Frauen: 116 016 (free, 24/7)
+  * Hilfetelefon sexueller Missbrauch: 0800 22 55 530 (free)
+  * Polizei/Police: 110
+  * Weisser Ring: 116 006
+
+CLOSING (every response):
+Offer follow-up questions. End with: "${l.skipNote}"
+
+STYLE RULES:
+- Use encouraging language: "If you would like..." not "You must..."
+- NEVER demand traumatic details
+- ALWAYS offer option to skip
+- Be warm but factually sound
+- NO Markdown formatting (no ** or ##). Write headings as plain text with colon.`,
         input: message,
         tools: [
           {
@@ -164,13 +130,12 @@ ${closingInstruction}`,
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("OpenAI Fehler:", JSON.stringify(errorData));
-      return res.status(500).json({ error: "Fehler bei der KI-Anfrage" });
+      console.error("OpenAI Error:", JSON.stringify(errorData));
+      return res.status(500).json({ error: "API error" });
     }
 
     const data = await response.json();
 
-    // Antworttext aus der Responses API extrahieren
     let reply = "";
     if (data.output) {
       for (const item of data.output) {
@@ -184,22 +149,15 @@ ${closingInstruction}`,
       }
     }
 
-    if (!reply) {
-      reply = isEnglish
-        ? "Sorry, I could not generate a response. Please try again."
-        : "Entschuldigung, ich konnte leider keine Antwort generieren. Bitte versuche es erneut.";
-    }
+    if (!reply) reply = errorMsg;
 
-    // Quellenverweise im Format 【...】 entfernen (OpenAI-interne Referenzen)
     reply = reply.replace(/【[^】]*】/g, "");
-
-    // Markdown-Formatierung ** entfernen
     reply = reply.replace(/\*\*/g, "");
 
     return res.status(200).json({ reply });
 
   } catch (error) {
-    console.error("Server-Fehler:", error);
-    return res.status(500).json({ error: "Interner Serverfehler" });
+    console.error("Server error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
