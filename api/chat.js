@@ -1,7 +1,7 @@
 /**
  * BACKEND-PROXY FÜR WHISPERTOME.DE
  * Nutzt die OpenAI Responses API mit File Search
- * Unterstützt: Deutsch, Englisch, Türkisch, Spanisch, Arabisch, Französisch
+ * Unterstützt: Deutsch, Leichte Sprache, Englisch, Türkisch, Spanisch, Arabisch, Französisch
  */
 
 export default async function handler(req, res) {
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     es: { short: "Respuesta breve:", detail: "Detalle (contexto legal):", steps: "Próximos pasos concretos (si lo deseas):", skipNote: "Puedes compartir lo que quieras — o simplemente omitir estas preguntas." },
     ar: { short: "إجابة مختصرة:", detail: "تفاصيل (الخلفية القانونية):", steps: "الخطوات التالية الملموسة (إذا أردت):", skipNote: "يمكنك مشاركة ما تريد — أو تخطي هذه الأسئلة ببساطة." },
     fr: { short: "Réponse courte :", detail: "Détail (contexte juridique) :", steps: "Prochaines étapes concrètes (si tu le souhaites) :", skipNote: "Tu peux partager autant que tu veux — ou simplement passer ces questions." },
+    ls: { short: "Kurze Antwort:", detail: "Mehr Infos zum Gesetz:", steps: "Das kannst Du jetzt tun:", skipNote: "Du kannst so viel erzählen wie Du möchtest. Oder Du kannst die Fragen über·springen." },
   };
 
   const openingTexts = {
@@ -37,6 +38,7 @@ export default async function handler(req, res) {
     es: "Lamento mucho que hayas tenido que vivir esta experiencia. Gracias por tu confianza. Tus datos personales no se recopilan, almacenan ni comparten. A continuación, te proporcionaré una visión general de la relevancia en derecho penal y la situación legal en Alemania.",
     ar: "أنا آسف لأنك اضطررت لخوض هذه التجربة. شكراً لثقتك. لا يتم جمع بياناتك الشخصية أو تخزينها أو مشاركتها. سأقدم لك فيما يلي نظرة عامة على الأهمية الجنائية والوضع القانوني في ألمانيا.",
     fr: "Je suis désolé(e) que tu aies dû vivre cette expérience. Merci pour ta confiance. Tes données personnelles ne sont ni collectées, ni enregistrées, ni partagées. Je vais te donner ci-dessous un aperçu de la pertinence pénale et de la situation juridique en Allemagne.",
+    ls: "Es tut mir leid. Das war bestimmt schlimm für Dich. Danke, dass Du mir davon erzählst. Niemand speichert Deine Daten. Niemand weiß, wer Du bist. Ich erkläre Dir jetzt, was das Gesetz dazu sagt.",
   };
 
   const errorMessages = {
@@ -46,14 +48,16 @@ export default async function handler(req, res) {
     es: "Lo siento, no pude generar una respuesta. Por favor, inténtalo de nuevo.",
     ar: "عذراً، لم أتمكن من توليد إجابة. يرجى المحاولة مرة أخرى.",
     fr: "Désolé(e), je n'ai pas pu générer de réponse. Veuillez réessayer.",
+    ls: "Es tut mir leid. Es gab einen Fehler. Bitte versuche es noch einmal.",
   };
 
   const l = labels[lang] || labels.de;
   const openingText = openingTexts[lang] || openingTexts.de;
   const errorMsg = errorMessages[lang] || errorMessages.de;
 
-  const languageNames = { de: "German", en: "English", tr: "Turkish", es: "Spanish", ar: "Arabic", fr: "French" };
+  const languageNames = { de: "German", en: "English", tr: "Turkish", es: "Spanish", ar: "Arabic", fr: "French", ls: "Leichte Sprache (Easy German)" };
   const langName = languageNames[lang] || "German";
+  const isLeichteSprache = lang === "ls";
 
   const openingInstruction = isFirstMessage
     ? `OPENING (ONLY for this first response):
@@ -79,6 +83,22 @@ You are an empathetic, fact-oriented assistance system for anonymous initial ass
 
 LANGUAGE (CRITICAL): Respond ENTIRELY in ${langName}. Use these EXACT section headers: "${l.short}", "${l.detail}", "${l.steps}". Even though source documents are in German, translate all explanations into ${langName}. Always include original German legal terms and paragraph numbers in parentheses (e.g. "sexual harassment (sexuelle Belästigung, § 184i StGB)").
 ${lang === "ar" ? "Write in Modern Standard Arabic." : ""}
+${isLeichteSprache ? `LEICHTE SPRACHE REGELN (STRENG einhalten):
+Du schreibst in Leichter Sprache nach den offiziellen Regeln. Das bedeutet:
+- Benutze nur kurze Sätze. Maximal 8 bis 12 Wörter pro Satz.
+- Nur eine Aussage pro Satz.
+- Benutze einfache und bekannte Wörter. Keine Fach·wörter ohne Erklärung.
+- Wenn Du ein schwieriges Wort brauchst, erkläre es sofort danach in einem neuen Satz.
+- Trenne lange zusammen·gesetzte Wörter mit einem Medio·punkt (·). Zum Beispiel: Straf·gesetz·buch, Sexual·straf·recht, Beweis·sicherung, Beratungs·stelle.
+- Schreibe immer in der aktiven Form. Nicht: "Es wurde gemacht." Sondern: "Jemand hat das gemacht."
+- Benutze keine Verneinungen wenn möglich. Nicht: "Das ist nicht erlaubt." Sondern: "Das ist verboten."
+- Benutze keine Redewendungen oder Metaphern.
+- Benutze keine Abkürzungen. Schreibe: "zum Beispiel" statt "z.B."
+- Sprich die Person immer mit "Du" an.
+- Jeder neue Gedanke beginnt in einer neuen Zeile.
+- Sei besonders einfühlsam und ermutigend.
+- Nenne bei Paragraphen immer den einfachen Namen dazu. Zum Beispiel: "§ 184i Straf·gesetz·buch. Das ist das Gesetz gegen sexuelle Belästigung."
+- Bei den Hilfs·angeboten: Erkläre was passiert wenn man dort anruft. Zum Beispiel: "Du kannst dort anrufen. Das kostet kein Geld. Du musst nicht Deinen Namen sagen."` : ""}
 
 DOCUMENT SEARCH (CRITICAL):
 - ALWAYS search uploaded documents FIRST for every user question.
