@@ -1,7 +1,7 @@
 /**
  * BACKEND-PROXY FÜR WHISPERTOME.DE
  * Nutzt die OpenAI Responses API mit File Search
- * Unterstützt: Deutsch, Leichte Sprache, Englisch, Türkisch, Spanisch, Arabisch, Französisch
+ * Unterstützt: Deutsch, Leichte Sprache, Englisch, Türkisch, Spanisch, Arabisch, Französisch, Ukrainisch, Polnisch, Russisch, Italienisch
  */
 
 export default async function handler(req, res) {
@@ -28,6 +28,10 @@ export default async function handler(req, res) {
     es: { short: "Respuesta breve:", detail: "Detalle (contexto legal):", steps: "Próximos pasos concretos (si lo deseas):", skipNote: "Puedes compartir lo que quieras — o simplemente omitir estas preguntas." },
     ar: { short: "إجابة مختصرة:", detail: "تفاصيل (الخلفية القانونية):", steps: "الخطوات التالية الملموسة (إذا أردت):", skipNote: "يمكنك مشاركة ما تريد — أو تخطي هذه الأسئلة ببساطة." },
     fr: { short: "Réponse courte :", detail: "Détail (contexte juridique) :", steps: "Prochaines étapes concrètes (si tu le souhaites) :", skipNote: "Tu peux partager autant que tu veux — ou simplement passer ces questions." },
+    uk: { short: "Коротка відповідь:", detail: "Деталі (правовий контекст):", steps: "Конкретні наступні кроки (якщо бажаєте):", skipNote: "Ви можете розповісти стільки, скільки хочете — або просто пропустити ці питання." },
+    pl: { short: "Krótka odpowiedź:", detail: "Szczegóły (kontekst prawny):", steps: "Konkretne kolejne kroki (jeśli chcesz):", skipNote: "Możesz powiedzieć tyle, ile chcesz — lub po prostu pominąć te pytania." },
+    ru: { short: "Краткий ответ:", detail: "Подробности (правовой контекст):", steps: "Конкретные следующие шаги (если хотите):", skipNote: "Вы можете рассказать столько, сколько хотите — или просто пропустить эти вопросы." },
+    it: { short: "Risposta breve:", detail: "Dettaglio (contesto giuridico):", steps: "Prossimi passi concreti (se lo desideri):", skipNote: "Puoi condividere quanto vuoi — o semplicemente saltare queste domande." },
     ls: { short: "Kurze Antwort:", detail: "Mehr Infos zum Gesetz:", steps: "Das kannst Du jetzt tun:", skipNote: "Du kannst so viel erzählen wie Du möchtest. Oder Du kannst die Fragen über·springen." },
   };
 
@@ -38,6 +42,10 @@ export default async function handler(req, res) {
     es: "Lamento mucho que hayas tenido que vivir esta experiencia. Gracias por tu confianza. Tus datos personales no se recopilan, almacenan ni comparten. A continuación, te proporcionaré una visión general de la relevancia en derecho penal y la situación legal en Alemania.",
     ar: "أنا آسف لأنك اضطررت لخوض هذه التجربة. شكراً لثقتك. لا يتم جمع بياناتك الشخصية أو تخزينها أو مشاركتها. سأقدم لك فيما يلي نظرة عامة على الأهمية الجنائية والوضع القانوني في ألمانيا.",
     fr: "Je suis désolé(e) que tu aies dû vivre cette expérience. Merci pour ta confiance. Tes données personnelles ne sont ni collectées, ni enregistrées, ni partagées. Je vais te donner ci-dessous un aperçu de la pertinence pénale et de la situation juridique en Allemagne.",
+    uk: "Мені дуже шкода, що тобі довелося пережити цей досвід. Дякую за довіру. Твої особисті дані не збираються, не зберігаються і не передаються. Далі я надам тобі огляд кримінально-правової значущості та правової ситуації в Німеччині.",
+    pl: "Bardzo mi przykro, że musiałaś/musiałeś przez to przejść. Dziękuję za zaufanie. Twoje dane osobowe nie są gromadzone, przechowywane ani udostępniane. Poniżej przedstawię przegląd znaczenia prawnokarnego i sytuacji prawnej w Niemczech.",
+    ru: "Мне очень жаль, что тебе пришлось пережить этот опыт. Спасибо за доверие. Твои личные данные не собираются, не хранятся и не передаются. Далее я предоставлю тебе обзор уголовно-правовой значимости и правовой ситуации в Германии.",
+    it: "Mi dispiace molto che tu abbia dovuto vivere questa esperienza. Grazie per la tua fiducia. I tuoi dati personali non vengono raccolti, memorizzati né condivisi. Di seguito ti fornirò una panoramica sulla rilevanza penale e sulla situazione giuridica in Germania.",
     ls: "Es tut mir leid. Das war bestimmt schlimm für Dich. Danke, dass Du mir davon erzählst. Niemand speichert Deine Daten. Niemand weiß, wer Du bist. Ich erkläre Dir jetzt, was das Gesetz dazu sagt.",
   };
 
@@ -48,6 +56,10 @@ export default async function handler(req, res) {
     es: "Lo siento, no pude generar una respuesta. Por favor, inténtalo de nuevo.",
     ar: "عذراً، لم أتمكن من توليد إجابة. يرجى المحاولة مرة أخرى.",
     fr: "Désolé(e), je n'ai pas pu générer de réponse. Veuillez réessayer.",
+    uk: "Вибачте, не вдалося згенерувати відповідь. Будь ласка, спробуйте ще раз.",
+    pl: "Przepraszam, nie udało się wygenerować odpowiedzi. Proszę spróbować ponownie.",
+    ru: "Извините, не удалось сгенерировать ответ. Пожалуйста, попробуйте ещё раз.",
+    it: "Mi dispiace, non è stato possibile generare una risposta. Per favore, riprova.",
     ls: "Es tut mir leid. Es gab einen Fehler. Bitte versuche es noch einmal.",
   };
 
@@ -55,7 +67,7 @@ export default async function handler(req, res) {
   const openingText = openingTexts[lang] || openingTexts.de;
   const errorMsg = errorMessages[lang] || errorMessages.de;
 
-  const languageNames = { de: "German", en: "English", tr: "Turkish", es: "Spanish", ar: "Arabic", fr: "French", ls: "Leichte Sprache (Easy German)" };
+  const languageNames = { de: "German", en: "English", tr: "Turkish", es: "Spanish", ar: "Arabic", fr: "French", uk: "Ukrainian", pl: "Polish", ru: "Russian", it: "Italian", ls: "Leichte Sprache (Easy German)" };
   const langName = languageNames[lang] || "German";
   const isLeichteSprache = lang === "ls";
 
