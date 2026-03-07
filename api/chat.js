@@ -23,11 +23,20 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "API-Key nicht konfiguriert" });
   }
 
-  const { message } = req.body;
+  const { message, isFirstMessage } = req.body;
 
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Keine Nachricht empfangen" });
   }
+
+  // Eröffnungstext nur bei der ersten Nachricht
+  const openingInstruction = isFirstMessage
+    ? `1) EMPATHISCHE ERÖFFNUNG (NUR bei dieser ersten Antwort):
+Beginne diese Antwort mit EXAKT diesem Text (KEINE Variation, KEINE Änderung):
+"Es tut mir leid, dass du diese Erfahrung machen musstest. Danke für Dein Vertrauen. Deine persönlichen Daten werden nicht erfasst, gespeichert oder weitergegeben. Ich gebe Dir im Folgenden einen Überblick zur strafrechtlichen Relevanz und der Gesetzeslage in Deutschland."
+Danach folgt die Kurzantwort.`
+    : `1) ERÖFFNUNG (Folgenachricht):
+Beginne diese Antwort direkt mit der Kurzantwort. KEIN Einleitungstext, KEIN Datenschutzhinweis, KEIN empathischer Satz. Starte sofort mit "Kurzantwort:" und der inhaltlichen Einschätzung.`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -50,9 +59,7 @@ DOKUMENTENSUCHE (KRITISCH WICHTIG):
 - Nenne IMMER konkrete Paragraphen aus dem StGB (z.B. § 184i StGB für sexuelle Belästigung, § 177 StGB für sexuellen Übergriff/Vergewaltigung, § 174 StGB für Missbrauch von Schutzbefohlenen, § 238 StGB für Nachstellung/Stalking, § 223 StGB für Körperverletzung).
 - Sage NIEMALS nur "Dazu habe ich keine Informationen". Antworte IMMER fundiert mit rechtlichem Hintergrund.
 
-1) EMPATHISCHE ERÖFFNUNG (bei JEDER Antwort):
-Beginne JEDE Antwort mit EXAKT diesem Text (KEINE Variation, KEINE Änderung):
-"Es tut mir leid, dass du diese Erfahrung machen musstest. Danke für Dein Vertrauen. Deine persönlichen Daten werden nicht erfasst, gespeichert oder weitergegeben. Ich gebe Dir im Folgenden einen Überblick zur strafrechtlichen Relevanz und der Gesetzeslage in Deutschland."
+${openingInstruction}
 
 2) ANTWORTSTRUKTUR (STRENG einhalten, mit diesen EXAKTEN Überschriften):
 
